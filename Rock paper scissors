@@ -1,0 +1,106 @@
+pragma solidity ^0.5.0;
+
+contract RockPaperScissors {
+    address payable private player1;
+    address payable private player2;
+    string private choice1;
+    string private choice2;
+    bool private choice1_;
+    bool private choice2_;
+    uint256 private fee = 1 ether;
+
+    // Modifiers
+    
+    modifier isJoinable() {
+        require(player1 == address(0) || player2 == address(0),
+                "Only 2 players allowed."
+        );
+        require(msg.value == fee, 
+                "You must pay 1 ETH to play the game."
+        );
+        _;
+    }
+    
+    modifier isValidChoice(string memory _playerChoice) {
+        require(keccak256(bytes(_playerChoice)) == keccak256(bytes('Rock')) ||
+                keccak256(bytes(_playerChoice)) == keccak256(bytes('Paper')) ||
+                keccak256(bytes(_playerChoice)) == keccak256(bytes('Scissors')) ,
+                "Your choice is not valid, it should be one of Rock, Paper and Scissors."
+        );
+        _;
+    }
+    
+    modifier playersMadeChoice() {
+        require(choice1_ && choice2_,
+                "The player(s) have not made their choice yet."
+        );
+        _;
+    }
+
+    // Functions
+     
+    function Play(string calldata _playerChoice) external payable 
+        isJoinable()
+        isValidChoice(_playerChoice)
+    {
+        if (player1 == address(0))
+            player1 = msg.sender;
+        else
+            player2 = msg.sender;
+        if (msg.sender == player1 && !choice1_) {
+            choice1 = _playerChoice;
+            choice1_ = true;
+        } else if (msg.sender == player2 && !choice2_) {
+            choice2 = _playerChoice;
+            choice2_ = true;
+        }
+    }
+    
+    function compareStringsbyBytes(string memory s1, string memory s2) public pure returns(bool){
+        return keccak256(abi.encodePacked(s1)) == keccak256(abi.encodePacked(s2));
+    }
+    
+    function Finish() external 
+        playersMadeChoice()
+    {
+        if (compareStringsbyBytes(choice1,"Rock")) {
+            if (compareStringsbyBytes(choice2,"Rock")) {
+                player1.transfer(fee); 
+                player2.transfer(fee);
+            } else if (compareStringsbyBytes(choice2,"Paper")) {
+                player2.transfer(address(this).balance);
+            } else {
+                player1.transfer(address(this).balance);
+            }
+        } else if (compareStringsbyBytes(choice1,"Paper")) {
+            if (compareStringsbyBytes(choice2,"Rock")) {
+                player1.transfer(address(this).balance);
+            } else if (compareStringsbyBytes(choice2,"Paper")) {
+                player1.transfer(fee); 
+                player2.transfer(fee);
+            } else {
+                player2.transfer(address(this).balance);
+            }
+        } else {
+            if (compareStringsbyBytes(choice1,"Scissors")) {
+                if (compareStringsbyBytes(choice2,"Rock")) {
+                    player2.transfer(address(this).balance);
+                } else if (compareStringsbyBytes(choice2,"Paper")) {
+                    player1.transfer(address(this).balance);
+                } else {
+                    player1.transfer(fee); 
+                    player2.transfer(fee);
+                }
+            }
+        }
+        
+        player1 = address(0);
+        player2 = address(0);
+
+        choice1 = "";
+        choice2 = "";
+        
+        choice1_ = false;
+        choice2_ = false;
+    }
+}
